@@ -1,0 +1,56 @@
+import { DataTypes } from 'sequelize';
+import bcrypt from 'bcryptjs';
+import sequelize from '../config/db.js';
+
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  fullName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Please provide a full name'
+      }
+    }
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    lowercase: true,
+    validate: {
+      isEmail: {
+        msg: 'Please provide a valid email'
+      }
+    }
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: {
+        args: [6, 100],
+        msg: 'Password should be at least 6 characters'
+      }
+    }
+  }
+}, {
+  timestamps: true,
+  hooks: {
+    beforeCreate: async (user) => {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(user.password, salt);
+    }
+  }
+});
+
+// Method to match password
+User.prototype.matchPassword = async function(enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+export default User;
