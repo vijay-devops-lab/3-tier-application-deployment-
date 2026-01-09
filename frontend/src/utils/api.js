@@ -1,4 +1,13 @@
-const API_URL = 'http://localhost:5000/api';
+// Determine API base URL with sensible fallbacks
+// Priority:
+// 1) Vite env var VITE_API_URL (e.g., http://your-domain:5000/api)
+// 2) If running on localhost, use local API http://localhost:5000/api
+// 3) Otherwise, assume same-origin and hit /api (behind a reverse proxy)
+const DEFAULT_BASE = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+  ? 'http://localhost:5000/api'
+  : '/api';
+
+const API_URL = (import.meta?.env?.VITE_API_URL || DEFAULT_BASE).replace(/\/$/, '');
 
 // Helper function for API requests
 const apiRequest = async (endpoint, options = {}) => {

@@ -1,182 +1,198 @@
-# BuildCo - Full Stack Application
+# Deploying a MERN 3-Tier Architecture on AWS
 
-Complete construction company website with React frontend and Node.js/MySQL backend.
+## 1. Overview
 
-## 🚀 Quick Start
+This document explains, step by step, how to deploy a **MERN stack application** using a **3-Tier Architecture on AWS**. The architecture follows real-world production standards used in enterprises.
 
-### Prerequisites
-- Node.js (v16 or higher)
-- MySQL database (running via Docker or locally)
+### 3 Tiers
 
-### Setup Instructions
+1. **Presentation Tier** – React Frontend
+2. **Application Tier** – Node.js / Express Backend
+3. **Data Tier** – Amazon RDS (MySQL)
 
-#### 1. Start MySQL Database (if using Docker)
-```bash
-cd db
-docker compose up -d
+---
+
+## 2. High-Level Architecture
+
+**Flow:**
+User → Internet → Application Load Balancer (ALB) → Backend EC2 (Private Subnet) → RDS MySQL
+
+**Key Principles:**
+
+* No backend or database is publicly exposed
+* Traffic is controlled using Security Groups
+* High availability using Multi-AZ
+
+---
+
+## 3. VPC Setup
+
+### 3.1 Create VPC
+
+* CIDR: `10.0.0.0/16`
+
+### 3.2 Subnets
+
+| Tier           | Subnet Type | AZs                      |
+| -------------- | ----------- | ------------------------ |
+| Frontend / ALB | Public      | ap-south-1a, ap-south-1b |
+| Backend        | Private     | ap-south-1a              |
+| Database       | Private     | ap-south-1a, ap-south-1b |
+
+### 3.3 Internet & NAT Gateway
+
+* Internet Gateway attached to VPC
+* NAT Gateway in public subnet
+* Private subnets route internet traffic via NAT
+
+---
+
+## 4. Security Groups
+
+### 4.1 ALB Security Group
+
+* Inbound: HTTP 80 from `0.0.0.0/0`
+* Outbound: All
+
+### 4.2 Backend EC2 Security Group
+
+* Inbound: TCP 5000 **from ALB SG only**
+* Outbound: All
+
+### 4.3 RDS Security Group
+
+* Inbound: TCP 3306 **from Backend SG only**
+* Outbound: All
+
+---
+
+## 5. Database Tier – Amazon RDS
+
+### 5.1 RDS Configuration
+
+* Engine: MySQL
+* Instance: `db.t4g.micro`
+* Public access: ❌ Disabled
+* Subnet group: Private subnets only
+
+### 5.2 RDS Endpoint Example
+
+```
+mern-db.c1466828yxxw.ap-south-1.rds.amazonaws.com:3306
 ```
 
-#### 2. Setup Backend
-```bash
-cd backend
-npm install
-```
+---
 
-Make sure `.env` file exists with correct MySQL credentials:
-```
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=root
-DB_NAME=buildco
-JWT_SECRET=buildco_secret_key_change_in_production_2026
-JWT_EXPIRE=7d
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
-```
+## 6. Application Tier – Backend (Node.js)
 
-Start backend server:
-```bash
-npm run dev
-```
+### 6.1 EC2 Setup
 
-Backend will run on http://localhost:5000
+* Instance: Ubuntu 22.04
+* Subnet: Private
+* No public IP
 
-#### 3. Setup Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### 6.2 Backend Environment Variables
 
-Frontend will run on http://localhost:5173
-
-## 🔐 Authentication Flow
-
-1. **First Time Users**: Click "Register" → Create account → Automatically logged in → Redirected to Home
-2. **Existing Users**: Click "Login" → Enter credentials → Redirected to Home
-3. **Protected Routes**: Home page requires authentication - unauthenticated users redirected to Login
-4. **Logout**: Click "Logout" button in navbar → Redirected to Login page
-
-## 📁 Project Structure
-
-```
-.
-├── backend/                 # Node.js/Express API
-│   ├── src/
-│   │   ├── config/         # Database configuration
-│   │   ├── controllers/    # Request handlers
-│   │   ├── middleware/     # Auth & error handling
-│   │   ├── models/         # Sequelize models
-│   │   ├── routes/         # API routes
-│   │   └── server.js       # Entry point
-│   └── package.json
-│
-├── frontend/               # React application
-│   ├── src/
-│   │   ├── components/    # ProtectedRoute component
-│   │   ├── context/       # AuthContext for state management
-│   │   ├── pages/         # Login, Register, Home pages
-│   │   ├── router/        # Route configuration
-│   │   ├── utils/         # API utility functions
-│   │   └── App.jsx
-│   └── package.json
-│
-└── db/                    # Docker MySQL setup
-    └── docker-compose.yml
-```
-
-## 🔑 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user (protected)
-- `POST /api/auth/logout` - Logout user
-
-### Users
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/:id` - Update user (protected)
-- `DELETE /api/users/:id` - Delete user (protected)
-
-## 🛠️ Technologies Used
-
-### Backend
-- Node.js & Express
-- MySQL & Sequelize ORM
-- JWT for authentication
-- bcryptjs for password hashing
-- CORS enabled
-
-### Frontend
-- React 18
-- React Router DOM (routing & navigation)
-- Context API (state management)
-- Tailwind CSS (styling)
-- Typed.js (animations)
-
-## 🔒 Security Features
-- JWT token-based authentication
-- Password hashing with bcryptjs
-- Protected routes
-- CORS configuration
-- Input validation
-
-## 📝 Environment Variables
-
-### Backend (.env)
 ```
 PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=buildco
-JWT_SECRET=your_secret_key
-JWT_EXPIRE=7d
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
+DB_HOST=mern-db.c1466828yxxw.ap-south-1.rds.amazonaws.com
+DB_USER=<db-user>
+DB_PASSWORD=<db-password>
+DB_NAME=<db-name>
+NODE_ENV=production
 ```
 
-## 🧪 Testing the Application
+### 6.3 Dockerized Backend
 
-1. Start MySQL, backend, and frontend servers
-2. Navigate to http://localhost:5173
-3. You'll be redirected to login (home is protected)
-4. Click "Create one" to register a new account
-5. Fill in the registration form
-6. Upon successful registration, you'll be redirected to home
-7. Logout and try logging in again
-8. Home page now shows your user information
+* Backend runs inside Docker container
+* Port mapping: `5000:5000`
 
-## 📱 Features
+### 6.4 Health Check Endpoint
 
-- User registration with validation
-- Secure login system
-- Protected home page (requires authentication)
-- Automatic redirect for unauthenticated users
-- User profile display
-- Logout functionality
-- Responsive design
-- Error handling and user feedback
+```
+GET /health
+Response: 200 OK
+```
 
-## 🐛 Troubleshooting
+---
 
-**Backend won't start:**
-- Ensure MySQL is running
-- Check database credentials in `.env`
-- Verify port 5000 is not in use
+## 7. Load Balancer – Application Load Balancer (ALB)
 
-**Frontend can't connect to backend:**
-- Ensure backend is running on port 5000
-- Check CORS configuration
-- Verify API URL in `frontend/src/utils/api.js`
+### 7.1 ALB Configuration
 
-**Database errors:**
-- Check MySQL connection
-- Verify database 'buildco' exists
-- Check user permissions
+* Type: Application Load Balancer
+* Scheme: Internet-facing
+* Subnets: Public subnets (Multi-AZ)
 
-## 📄 License
+### 7.2 Listener
 
-MIT
+* HTTP 80 → Forward to Target Group
+
+### 7.3 Target Group
+
+* Target type: Instance
+* Protocol: HTTP
+* Port: 5000
+* Health check path: `/health`
+
+---
+
+## 8. Presentation Tier – Frontend
+
+### 8.1 Frontend Hosting Options
+
+* S3 + CloudFront OR
+* EC2 + NGINX
+
+### 8.2 Backend API Configuration
+
+```
+API_BASE_URL=http://<ALB-DNS>
+```
+
+---
+
+## 9. Validation Checklist
+
+✅ ALB target shows **Healthy**
+
+```
+curl http://<ALB-DNS>/health
+```
+
+✅ Backend connects to RDS
+
+```
+MySQL connected successfully
+```
+
+✅ No public access to backend or DB
+
+---
+
+## 10. Production Best Practices (Next Steps)
+
+* Enable HTTPS (ACM + ALB)
+* Auto Scaling Group for backend
+* Use Secrets Manager for DB credentials
+* Enable ALB access logs
+* Add CloudWatch alarms
+
+---
+
+## 11. Interview Explanation (Short)
+
+> “I deployed a MERN application using a 3-tier AWS architecture where the frontend communicates with an Application Load Balancer, which securely routes traffic to a private EC2 backend. The backend connects to a private RDS MySQL database using security-group-based access. This setup ensures scalability, security, and high availability.”
+
+---
+
+## 12. Conclusion
+
+This deployment follows **enterprise-grade AWS architecture** standards and demonstrates strong knowledge of:
+
+* Networking (VPC, subnets, routing)
+* Security (SG isolation)
+* Backend scalability
+* Cloud-native deployment patterns
+
+🎯 **This project is resume-ready and interview-ready.**
