@@ -4,7 +4,7 @@
 
 This document explains, step by step, how to deploy a **MERN stack application** using a **3-Tier Architecture on AWS**. The architecture follows real-world production standards used in enterprises.
 
-![]()
+![](https://raw.githubusercontent.com/vijay-devops-lab/3-tier-application-deployment-/refs/heads/main/asset/aws%203tier.png)
 
 ### 3 Tiers
 
